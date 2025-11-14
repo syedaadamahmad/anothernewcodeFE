@@ -75,7 +75,7 @@ export default function FlightCard({ flightData, bookingOptions }) {
   setIsLoading(true);
 
   try {
-    const res = await fetch(`${process.env.REACT_APP_API_URL}/chat/flight`, {
+    const res = await fetch fetch(`${process.env.NEXT_PUBLIC_API_URLS}/chat/flight`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
