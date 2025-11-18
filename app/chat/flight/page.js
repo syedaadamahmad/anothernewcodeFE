@@ -160,7 +160,7 @@ export default function Home() {
   const [showClassPicker, setShowClassPicker] = useState(false);
   const [showBoardingPass, setShowBoardingPass] = useState(false);
   const [pendingSearchPayload, setPendingSearchPayload] = useState(null);
-const [bpSearching, setBpSearching] = useState(false);
+  const [bpSearching, setBpSearching] = useState(false);
 
   // Filtering values (UI state)
   const [selectedDate, setSelectedDate] = useState('');
@@ -240,6 +240,7 @@ const [bpSearching, setBpSearching] = useState(false);
   function clearFiltersFromLocalStorage() {
     try {
       localStorage.removeItem(FILTER_KEY);
+      setShowBoardingPass(false);
     } catch (e) {
       console.warn('Failed to remove filters from localStorage', e);
     }
@@ -291,18 +292,18 @@ const [bpSearching, setBpSearching] = useState(false);
      ALWAYS scroll down after new messages
   -------------------------------------------------------*/
   // Update the message scroll effect to be less aggressive
-useEffect(() => {
-  // Only scroll if not showing boarding pass or filters
-  if (!showBoardingPass && !showDatePicker && !showAirlineFilter && !showPriceSlider && !showClassPicker) {
-    const t = setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }, 100);
-    return () => clearTimeout(t);
-  }
-}, [messages, showBoardingPass, showDatePicker, showAirlineFilter, showPriceSlider, showClassPicker]);
+  useEffect(() => {
+    // Only scroll if not showing boarding pass or filters
+    if (!showBoardingPass && !showDatePicker && !showAirlineFilter && !showPriceSlider && !showClassPicker) {
+      const t = setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, 100);
+      return () => clearTimeout(t);
+    }
+  }, [messages, showBoardingPass, showDatePicker, showAirlineFilter, showPriceSlider, showClassPicker]);
 
-// Remove or comment out the filter auto-scroll effect completely
-// This prevents jumping up when filters appear
+  // Remove or comment out the filter auto-scroll effect completely
+  // This prevents jumping up when filters appear
 
   /* ------------------------------------------------------
      Filter auto-scroll (only when AI asks for filter)
@@ -348,11 +349,11 @@ useEffect(() => {
     const showDate = /(what|which).*date|departure date|travel date|when.*travel/.test(content);
     // Airline filter should appear ONLY WHEN user is asked to CHOOSE airline
     const showAirline =
-      /(preferred airline|which airline|choose airline)/.test(content) &&
+      /(preferred airline|which airline|choose airline | your preferred airline)/.test(content) &&
       !/no specific airline preference/.test(content);
     // Block budget filter when user says: "My budget is ₹5000 - ₹50000"
     // inside the useEffect that inspects the AI message content
-    const preventBudget = /(?:my budget is|my budget's|budget is|your budget is|your budget's|you've set a budget of|budget between|a budget between|budget range|budget of up to|budget up to|budget up to|up to | budget is between | with a maximum price )\s*₹?\s*[\d,]+/i.test(content);
+    const preventBudget = /(?:my budget is|my budget's|budget is|your budget is|your budget's|you've set a budget of|budget between|a budget between|budget range|budget of up to|budget up to|budget up to|up to | budget is between | with a maximum price | maximum budget of )\s*₹?\s*[\d,]+/i.test(content);
 
     // Detect budget request normally
     const budgetRequest = /(maximum budget|price range|max price|budget)/.test(content);
@@ -387,72 +388,72 @@ useEffect(() => {
   -------------------------------------------------------*/
   // In your Home component, update the sendMessageAutomatically function:
 
-async function sendMessageAutomatically(history) {
-  setLoading(true);
-  try {
-    const res = await fetch(process.env.NEXT_PUBLIC_BACKEND_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_history: history }),
-    });
+  async function sendMessageAutomatically(history) {
+    setLoading(true);
+    try {
+      const res = await fetch(process.env.NEXT_PUBLIC_BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_history: history }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    // ✅ ALWAYS show boarding pass when flight_data exists OR when "couldn't find" message
-    const noFlightsFound = data.content?.toLowerCase().includes("couldn't find any flights");
-    
-    if (data.flight_data) {
-      // Flights found → show boarding pass with results
-      setPendingSearchPayload(data.flight_data);
-      setShowBoardingPass(true);
+      // ✅ ALWAYS show boarding pass when flight_data exists OR when "couldn't find" message
+      const noFlightsFound = data.content?.toLowerCase().includes("couldn't find any flights");
+
+      if (data.flight_data) {
+        // Flights found → show boarding pass with results
+        setPendingSearchPayload(data.flight_data);
+        setShowBoardingPass(true);
+        setMessages([...history, { role: 'ai', content: data.content }]);
+        return;
+      } else if (noFlightsFound) {
+        setCurrentFlightData(null);
+        setPendingSearchPayload(null);
+        setShowBoardingPass(true);
+
+        // ✅ SHOW THE "NO FLIGHTS" MESSAGE AFTER BOARDING PASS
+        setMessages([...history, { role: 'ai', content: data.content }]);
+
+        return;
+      }
+
+      // Normal message (no flight search)
       setMessages([...history, { role: 'ai', content: data.content }]);
-      return;
-    }else if (noFlightsFound) {
-  setCurrentFlightData(null);
-  setPendingSearchPayload(null);
-  setShowBoardingPass(true);
+      setJustSelectedFilter(false);
 
-  // ❌ DO NOT SHOW THE AI MESSAGE
-  setMessages(history);
+    } catch (err) {
+      setMessages((prev) => [...prev, { role: 'ai', content: '⚠️ Error connecting to server.' }]);
+    }
 
-  return;
-}
-
-    // Normal message (no flight search)
-    setMessages([...history, { role: 'ai', content: data.content }]);
-    setJustSelectedFilter(false);
-
-  } catch (err) {
-    setMessages((prev) => [...prev, { role: 'ai', content: '⚠️ Error connecting to server.' }]);
+    setLoading(false);
   }
-
-  setLoading(false);
-}
 
   /* ------------------------------------------------------
      Send filter quick responses
   -------------------------------------------------------*/
   function sendFilterResponse(response) {
-  const userMessage = { role: 'human', content: response };
-  const newMessages = [...messages, userMessage];
+    const userMessage = { role: 'human', content: response };
+    const newMessages = [...messages, userMessage];
 
-  // PREVENT UPWARD SCROLL
-  setJustSelectedFilter(true);
+    // PREVENT UPWARD SCROLL
+    setJustSelectedFilter(true);
 
-  // Start loading BEFORE backend call
-  setLoading(true);
+    // Start loading BEFORE backend call
+    setLoading(true);
 
-  // Clear filter boxes first
-  setShowDatePicker(false);
-  setShowAirlineFilter(false);
-  setShowPriceSlider(false);
-  setShowClassPicker(false);
+    // Clear filter boxes first
+    setShowDatePicker(false);
+    setShowAirlineFilter(false);
+    setShowPriceSlider(false);
+    setShowClassPicker(false);
 
-  setMessages(newMessages);
+    setMessages(newMessages);
 
-  // Backend call
-  sendMessageAutomatically(newMessages);
-}
+    // Backend call
+    sendMessageAutomatically(newMessages);
+  }
 
   /* ------------------------------------------------------
      UI Handlers
@@ -701,7 +702,7 @@ async function sendMessageAutomatically(history) {
               ))}
 
               {/* Loading bubble */}
-              {loading &&(!showBoardingPass && !bpSearching) &&  (
+              {loading && (!showBoardingPass && !bpSearching) && (
                 <div className="flex justify-start px-3">
                   <div className="px-5 py-3 rounded-3xl bg-white shadow border animate-pulse text-gray-700">
                     ✈️ Finding the best flight offers...
@@ -716,7 +717,7 @@ async function sendMessageAutomatically(history) {
               <BoardingPassCard
                 show={showBoardingPass}
                 onClose={() => setShowBoardingPass(false)}
-                 setBpSearching={setBpSearching}
+                setBpSearching={setBpSearching}
                 selectedDate={selectedDate} setSelectedDate={setSelectedDate}
                 selectedAirlines={selectedAirlines} setSelectedAirlines={setSelectedAirlines}
                 minBudget={minBudget} setMinBudget={setMinBudget}
@@ -747,10 +748,9 @@ async function sendMessageAutomatically(history) {
               )}
             </div>
           </div>
-
-          {/* Input Box */}
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-t shadow-lg pt-2">
-  <div className="max-w-4xl mx-auto flex gap-3 py-3 px-3">
+          {/* Input Box INSIDE blue area, sitting at bottom */}
+          <div className="mt-auto bg-white/90 backdrop-blur-xl border-t shadow-lg p-3 rounded-t-2xl">
+            <div className="flex gap-3">
               <textarea
                 className="flex-1 bg-white border px-4 py-3 rounded-2xl shadow-sm resize-none text-sm"
                 placeholder="Ask SmartBhai anything…"
@@ -766,7 +766,8 @@ async function sendMessageAutomatically(history) {
               />
 
               <button
-                className={`rounded-full p-3 shadow-lg transition ${loading || !input.trim() ? 'opacity-40 cursor-not-allowed' : 'hover:scale-105'}`}
+                className={`rounded-full p-3 shadow-lg transition ${loading || !input.trim() ? 'opacity-40 cursor-not-allowed' : 'hover:scale-105'
+                  }`}
                 onClick={sendMessage}
                 disabled={loading || !input.trim()}
               >
@@ -774,6 +775,7 @@ async function sendMessageAutomatically(history) {
               </button>
             </div>
           </div>
+
         </div>
       </div>
     </main>

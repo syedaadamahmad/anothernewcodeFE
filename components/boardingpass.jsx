@@ -47,15 +47,15 @@ export default function BoardingPassCard(props) {
         const msg = messages[i];
         if (msg.role === 'human') {
           const content = msg.content.toLowerCase();
-          
+
           // Pattern: "from X to Y" or "X to Y"
           const routePattern = /(?:from\s+)?([a-z\s]+?)\s+to\s+([a-z\s]+?)(?:\s|$|,|\.)/i;
           const match = content.match(routePattern);
-          
+
           if (match) {
             const fromText = match[1].trim();
             const toText = match[2].trim();
-            
+
             // Map city names to codes
             const cityMap = {
               'delhi': { code: 'DEL', name: 'New Delhi' },
@@ -71,10 +71,10 @@ export default function BoardingPassCard(props) {
               'goa': { code: 'GOI', name: 'Goa' },
               'jaipur': { code: 'JAI', name: 'Jaipur' },
             };
-            
+
             const fromCity = cityMap[fromText] || { code: fromText.toUpperCase().slice(0, 3), name: fromText };
             const toCity = cityMap[toText] || { code: toText.toUpperCase().slice(0, 3), name: toText };
-            
+
             setRouteInfo({
               from: fromCity.code,
               to: toCity.code,
@@ -107,31 +107,69 @@ export default function BoardingPassCard(props) {
     onClose?.();
     setBpSearching(true);
 
-    // Build search message - format exactly like filter responses
+    // Build search message
     const parts = [];
     if (tmpDate) parts.push(`My travel date is ${tmpDate}`);
-    
+
     if (tmpAirlines.length) {
-      if (tmpAirlines.includes('No Preference')) {
-        parts.push('No preference');
-      } else {
-        parts.push(`I prefer ${tmpAirlines.join(', ')}`);
-      }
+      if (tmpAirlines.includes('No Preference')) parts.push('No preference');
+      else parts.push(`I prefer ${tmpAirlines.join(', ')}`);
     }
-    
+
     parts.push(`My budget is ₹${tmpMax}`);
     parts.push(`I prefer ${tmpClass} class`);
 
     const searchMessage = parts.join('. ');
 
+    // Push user message
     const userMessage = { role: 'human', content: searchMessage };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
 
-    // Send to backend
-    await sendMessageAutomatically(newMessages);
-  }
+    // 🔥 Call backend manually so we can inspect results
+    try {
+      const res = await fetch(process.env.NEXT_PUBLIC_BACKEND_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_history: newMessages }),
+      });
 
+      const data = await res.json();
+      const flights = data?.flight_data || [];
+
+      // ❗ NO FLIGHTS FOUND → Show SmartBhai message
+      if (!flights.length) {
+        setBpSearching(false);
+        setCurrentFlightData(null);
+
+        setMessages(prev => [
+          ...prev,
+          {
+            role: "ai",
+            content:
+              "Hmm, I couldn't find any flights for that specific combination. 😔 Would you like to try a different date or a nearby airport?",
+          },
+        ]);
+
+        return; // stop here
+      }
+
+      // Flights found → proceed normally
+      setPendingSearchPayload(null);
+      setCurrentFlightData(flights);
+
+      setMessages(prev => [...prev, { role: "ai", content: data.content }]);
+
+    } catch (err) {
+      setMessages(prev => [
+        ...prev,
+        { role: "ai", content: "⚠️ Error connecting to server." },
+      ]);
+    }
+
+    setBpSearching(false);
+  }
+  
   function confirmPendingSearch() {
     if (pendingSearchPayload && Array.isArray(pendingSearchPayload)) {
       setBpSearching(true);
@@ -318,12 +356,12 @@ export default function BoardingPassCard(props) {
                       {/* Date picker */}
                       <div>
                         <label className="text-xs font-medium text-slate-600">📅 Travel Date</label>
-                        <input 
-                          type="date" 
-                          min={new Date().toISOString().split('T')[0]} 
-                          value={tmpDate} 
-                          onChange={(e) => setTmpDate(e.target.value)} 
-                          className="mt-2 w-full px-3 py-2 rounded-lg border bg-white text-sm" 
+                        <input
+                          type="date"
+                          min={new Date().toISOString().split('T')[0]}
+                          value={tmpDate}
+                          onChange={(e) => setTmpDate(e.target.value)}
+                          className="mt-2 w-full px-3 py-2 rounded-lg border bg-white text-sm"
                         />
                       </div>
 
@@ -331,15 +369,14 @@ export default function BoardingPassCard(props) {
                       <div>
                         <label className="text-xs font-medium text-slate-600">💺 Cabin Class</label>
                         <div className="mt-2 flex flex-wrap gap-2">
-                          {['Economy','Premium Economy','Business','First'].map(cls => (
-                            <button 
-                              key={cls} 
-                              onClick={() => setTmpClass(cls)} 
-                              className={`px-3 py-2 rounded-full text-xs font-semibold border transition ${
-                                tmpClass===cls
+                          {['Economy', 'Premium Economy', 'Business', 'First'].map(cls => (
+                            <button
+                              key={cls}
+                              onClick={() => setTmpClass(cls)}
+                              className={`px-3 py-2 rounded-full text-xs font-semibold border transition ${tmpClass === cls
                                   ? 'bg-indigo-600 text-white border-indigo-600'
                                   : 'bg-white text-slate-700 hover:bg-slate-50'
-                              }`}
+                                }`}
                             >
                               {cls}
                             </button>
@@ -352,14 +389,13 @@ export default function BoardingPassCard(props) {
                         <label className="text-xs font-medium text-slate-600">✈️ Preferred Airline</label>
                         <div className="mt-2 flex flex-wrap gap-2">
                           {airlines.map(a => (
-                            <button 
-                              key={a} 
-                              onClick={() => toggleAirlineChip(a)} 
-                              className={`px-3 py-2 rounded-full text-xs font-semibold border transition ${
-                                tmpAirlines.includes(a)
+                            <button
+                              key={a}
+                              onClick={() => toggleAirlineChip(a)}
+                              className={`px-3 py-2 rounded-full text-xs font-semibold border transition ${tmpAirlines.includes(a)
                                   ? 'bg-indigo-600 text-white border-indigo-600'
                                   : 'bg-white text-slate-700 hover:bg-slate-50'
-                              }`}
+                                }`}
                             >
                               {a}
                             </button>
@@ -370,20 +406,20 @@ export default function BoardingPassCard(props) {
                       {/* Budget slider - ONLY MAX */}
                       <div className="md:col-span-2">
                         <label className="text-xs font-medium text-slate-600">💰 Maximum Budget</label>
-                        
+
                         <div className="mt-3">
                           <div className="flex justify-between text-xs text-slate-500 mb-1">
                             <span>Budget Limit</span>
                             <span className="font-bold">₹{tmpMax.toLocaleString()}</span>
                           </div>
-                          <input 
-                            type="range" 
-                            min="5000" 
-                            max="50000" 
+                          <input
+                            type="range"
+                            min="5000"
+                            max="50000"
                             step="1000"
-                            value={tmpMax} 
-                            onChange={(e) => setTmpMax(Number(e.target.value))} 
-                            className="w-full accent-indigo-600" 
+                            value={tmpMax}
+                            onChange={(e) => setTmpMax(Number(e.target.value))}
+                            className="w-full accent-indigo-600"
                           />
                           <div className="flex justify-between text-xs text-slate-400 mt-1">
                             <span>₹5,000</span>
@@ -393,20 +429,20 @@ export default function BoardingPassCard(props) {
 
                         {/* Action buttons */}
                         <div className="mt-4 flex gap-3">
-                          <button 
-                            onClick={applyEditsAndSearch} 
+                          <button
+                            onClick={applyEditsAndSearch}
                             className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition"
                           >
                             Update & Search
                           </button>
-                          <button 
-                            onClick={() => { 
-                              setTmpDate(selectedDate||''); 
-                              setTmpAirlines(selectedAirlines?.slice()||[]); 
-                              setTmpMax(Number(maxBudget||50000)); 
-                              setTmpClass(travelClass||'Economy'); 
-                              setIsEditorOpen(false); 
-                            }} 
+                          <button
+                            onClick={() => {
+                              setTmpDate(selectedDate || '');
+                              setTmpAirlines(selectedAirlines?.slice() || []);
+                              setTmpMax(Number(maxBudget || 50000));
+                              setTmpClass(travelClass || 'Economy');
+                              setIsEditorOpen(false);
+                            }}
                             className="flex-1 py-3 rounded-xl border hover:bg-slate-50 transition"
                           >
                             Cancel
@@ -452,7 +488,7 @@ export default function BoardingPassCard(props) {
 
             <div className="mt-6">
               <div className="bg-white px-2 py-2 rounded-md inline-block shadow-inner text-slate-700">
-                <BarcodeSVG value={`${selectedDate || ''}-${(selectedAirlines||[]).join('|')}`} />
+                <BarcodeSVG value={`${selectedDate || ''}-${(selectedAirlines || []).join('|')}`} />
               </div>
               <div className="mt-3 text-xs text-slate-500">Scan at gate</div>
             </div>
