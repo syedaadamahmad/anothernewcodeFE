@@ -280,9 +280,8 @@ export default function FlightCardPremium({ flightData, bookingOptions }) {
             <div className="flex items-center gap-3 w-full md:w-auto">
               <button
                 onClick={() => setIsExpanded((s) => !s)}
-                className={`w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-3xl text-sm font-semibold transition-shadow transform hover:-translate-y-0.5 shadow-lg ${
-                  bookingOptions?.length ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white' : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                }`}
+                className={`w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-3xl text-sm font-semibold transition-shadow transform hover:-translate-y-0.5 shadow-lg ${bookingOptions?.length ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white' : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                  }`}
                 disabled={!bookingOptions?.length}
                 aria-expanded={isExpanded}
               >
@@ -373,9 +372,8 @@ export default function FlightCardPremium({ flightData, bookingOptions }) {
                                       {(chats[booking.book_with] || []).map((msg, i) => (
                                         <div key={i} className={`flex ${msg.role === 'human' ? 'justify-end' : 'justify-start'}`}>
                                           <div
-                                            className={`max-w-[82%] md:max-w-[75%] rounded-2xl px-4 py-2 leading-snug shadow-sm ${
-                                              msg.role === 'human' ? 'bg-indigo-700 text-white' : 'bg-white/90 border border-gray-100 text-gray-800'
-                                            }`}
+                                            className={`max-w-[82%] md:max-w-[75%] rounded-2xl px-4 py-2 leading-snug shadow-sm ${msg.role === 'human' ? 'bg-indigo-700 text-white' : 'bg-white/90 border border-gray-100 text-gray-800'
+                                              }`}
                                           >
                                             <ReactMarkdown>{msg.content}</ReactMarkdown>
 
@@ -444,44 +442,44 @@ export default function FlightCardPremium({ flightData, bookingOptions }) {
                                               </div>
                                             )}
 
-                                           {msg.role === 'ai' &&
- (msg.content.toLowerCase().includes('credit card or debit card') ||
-  msg.content.toLowerCase().includes('credit card or a debit card')) && (
-    <div className="mt-3 flex flex-col gap-2">
-      {['Credit Card', 'Debit Card'].map((cardType) => (
-        <label
-          key={cardType}
-          className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 cursor-pointer hover:bg-gray-50 transition"
-        >
-          <input
-            type="radio"
-            name={`cardType-${msg.id || Math.random()}`}
-            value={cardType}
-            onChange={(e) => {
-              const selected = e.target.value;
-              const platformKey = selectedOption?.platform;
-              if (!platformKey) return;
+                                            {msg.role === 'ai' &&
+                                              (msg.content.toLowerCase().includes('credit card or debit card') ||
+                                                msg.content.toLowerCase().includes('credit card or a debit card')) && (
+                                                <div className="mt-3 flex flex-col gap-2">
+                                                  {['Credit Card', 'Debit Card'].map((cardType) => (
+                                                    <label
+                                                      key={cardType}
+                                                      className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 cursor-pointer hover:bg-gray-50 transition"
+                                                    >
+                                                      <input
+                                                        type="radio"
+                                                        name={`cardType-${msg.id || Math.random()}`}
+                                                        value={cardType}
+                                                        onChange={(e) => {
+                                                          const selected = e.target.value;
+                                                          const platformKey = selectedOption?.platform;
+                                                          if (!platformKey) return;
 
-              setChats((prev) => {
-                const prevMsgs = prev[platformKey] || [];
-                const updated = [...prevMsgs, { role: 'human', content: selected }];
-                return { ...prev, [platformKey]: updated };
-              });
+                                                          setChats((prev) => {
+                                                            const prevMsgs = prev[platformKey] || [];
+                                                            const updated = [...prevMsgs, { role: 'human', content: selected }];
+                                                            return { ...prev, [platformKey]: updated };
+                                                          });
 
-              sendNestedMessage(selected);
+                                                          sendNestedMessage(selected);
 
-              // Disable both radio buttons after selection
-              const allInputs = e.target.closest('div').querySelectorAll('input');
-              allInputs.forEach((i) => (i.disabled = true));
-            }}
-          />
-          <span className="text-sm">
-            {cardType === 'Credit Card' ? '💳' : '🏦'} {cardType}
-          </span>
-        </label>
-      ))}
-    </div>
-)}
+                                                          // Disable both radio buttons after selection
+                                                          const allInputs = e.target.closest('div').querySelectorAll('input');
+                                                          allInputs.forEach((i) => (i.disabled = true));
+                                                        }}
+                                                      />
+                                                      <span className="text-sm">
+                                                        {cardType === 'Credit Card' ? '💳' : '🏦'} {cardType}
+                                                      </span>
+                                                    </label>
+                                                  ))}
+                                                </div>
+                                              )}
 
                                             {msg.role === 'ai' && msg.content.includes('Best combo for') && (
                                               <div className="mt-3">

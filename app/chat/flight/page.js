@@ -399,23 +399,27 @@ export default function Home() {
 
       const data = await res.json();
 
-      // ✅ ALWAYS show boarding pass when flight_data exists OR when "couldn't find" message
       const noFlightsFound = data.content?.toLowerCase().includes("couldn't find any flights");
 
+      // ✅ FLIGHT RESULTS FOUND
       if (data.flight_data) {
-        // Flights found → show boarding pass with results
-        setPendingSearchPayload(data.flight_data);
-        setShowBoardingPass(true);
-        setMessages([...history, { role: 'ai', content: data.content }]);
-        return;
-      } else if (noFlightsFound) {
+  setPendingSearchPayload(data.flight_data);
+  setCurrentFlightData(data.flight_data);   // ✅ FIX ADDED
+  setShowBoardingPass(true);
+  setMessages([...history, { role: 'ai', content: data.content }]);
+  setLoading(false);
+  return;
+}
+
+      // ❌ NO FLIGHTS FOUND
+      if (noFlightsFound) {
         setCurrentFlightData(null);
         setPendingSearchPayload(null);
         setShowBoardingPass(true);
 
-        // ✅ SHOW THE "NO FLIGHTS" MESSAGE AFTER BOARDING PASS
         setMessages([...history, { role: 'ai', content: data.content }]);
 
+        setLoading(false);   // ✅ IMPORTANT FIX
         return;
       }
 
@@ -424,10 +428,10 @@ export default function Home() {
       setJustSelectedFilter(false);
 
     } catch (err) {
-      setMessages((prev) => [...prev, { role: 'ai', content: '⚠️ Error connecting to server.' }]);
+      setMessages(prev => [...prev, { role: 'ai', content: '⚠️ Error connecting to server.' }]);
     }
 
-    setLoading(false);
+    setLoading(false);  // ✅ ALWAYS STOP LOADING
   }
 
   /* ------------------------------------------------------
